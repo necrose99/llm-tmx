@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "llm-tmx"
+dynamic = ["version"]
+description = "A streaming, bi-directional translation middleware converting TMX, XLIFF, and i18n JSON data to LLM JSONL lines on-the-fly."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Your Name", email = "your.email@example.com" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Text Processing :: Linguistic",
+]
+dependencies = []
+
+# Maps a terminal alias ('llm-tmx') straight to your internal Python functions
+[project.scripts]
+llm-tmx = "llm_tmx.cli:main"
+
+[tool.hatch.version]
+path = "src/llm_tmx/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/llm_tmx"]
