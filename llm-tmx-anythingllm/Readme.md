@@ -1,5 +1,5 @@
 # 📚 llm-tmx-anythingllm
-
+[example] [edit content to your needs] 
 A pluggable, zero-configuration background data ingestion tool and interactive notebook wrapper for **AnythingLLM**. It automates the extraction, transformation, and linguistic normalization of legacy translation datasets into RAG-ready vector spaces.
 
 This subsystem provides a clean local bridge for low-resource, ancient, or under-documented languages (e.g., Miami-Illinois, Lenape, Potawatomi) where standard commercial translation infrastructure does not exist or fails critical academic validation audits.
