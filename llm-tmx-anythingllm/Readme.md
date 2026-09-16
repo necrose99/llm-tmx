@@ -14,3 +14,6 @@ Low-resource and polysynthetic languages require precise structural tracking. Fo
 
 ### 3. Streamlined 24/7 "Data Cooking"
 Instead of forcing researchers to manually parse and enter entries, this plugin sets up a clean automation loop:
+
+
+[Messy Web Sources / MHTML Scrapes]│▼ (Automatic Ingestion Pass)[Ollama Data Normalizer]  ──► (Line-by-line streaming cleanup)│▼ (Structural Serialization)[llm-tmx Pipeline Engine]├──► Outputs memory-efficient JSONL training streams├──► Updates Ontolex-Lemon TTL Ontologies (lemon-model.net)└──► Writes clean Markdown Notebooks to AnythingLLM Storage Folder
