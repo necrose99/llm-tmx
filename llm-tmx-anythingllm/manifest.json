@@ -1,0 +1,28 @@
+{
+  "id": "llm-tmx-glossary-sync",
+  "name": "LLM-TMX Language & Glossary Ingestion Sync",
+  "version": "1.0.0",
+  "description": "Autonomously sanitizes MHTML/XLIFF blobs into Ontolex-Lemon TTL, exporting clean Markdown Notebooks to your AnythingLLM workspace.",
+  "author": "necrose99",
+  "entrypoint": "index.js",
+  "settings": [
+    {
+      "name": "target_iso",
+      "type": "string",
+      "default": "mia",
+      "label": "Target Language ISO Code (e.g., mia, pot, crj)"
+    },
+    {
+      "name": "glottocode",
+      "type": "string",
+      "default": "miam1252",
+      "label": "Glottocode Taxonomy Node Reference"
+    },
+    {
+      "name": "ollama_endpoint",
+      "type": "string",
+      "default": "http://localhost:11434",
+      "label": "Local Ollama Inference API URL"
+    }
+  ]
+}
