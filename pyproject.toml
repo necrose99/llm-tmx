@@ -1,6 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-cython"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel.hooks.cython]
+dependencies = ["hatch-cython"]
+src = ["src/llm_tmx"]
 
 [project]
 name = "llm-tmx"
@@ -18,7 +22,13 @@ classifiers = [
     "Operating System :: OS Independent",
     "Topic :: Text Processing :: Linguistic",
 ]
-dependencies = []
+[project.optional-dependencies]
+# Isolated ML pipeline hooks - loaded strictly on demand by down-stream frameworks
+training = [
+    "datasets>=2.0.0",     # For zero-copy, direct memory-mapped dataset streaming
+    "transformers>=4.20.0", # Basic tokenizing validation safety checks
+    "torch"
+]
 
 # Maps a terminal alias ('llm-tmx') straight to your internal Python functions
 [project.scripts]
