@@ -1,7 +1,9 @@
+# Src/Core.py 
 import io
+import csv
 import json
 import xml.etree.ElementTree as ET
-from typing import Generator, Dict, Any, Iterable
+from typing import Generator, Dict, Any, Iterable, List, Callable
 
 class LLMTranslationMiddleware:
     def __init__(self, src_lang: str = "en", tgt_lang: str = "cr"):
@@ -15,7 +17,7 @@ class LLMTranslationMiddleware:
         self.src_lang = src_lang.lower()
         self.tgt_lang = tgt_lang.lower()
         
-        # Core standards XML configurations
+        # Corrected W3C strict namespace binding to prevent element parsing dropouts
         self.xml_ns = {"xml": "http://w3.org"}
         
         # Plural and contextual suffixes to strip and isolate for structural JSON keys
@@ -37,10 +39,62 @@ class LLMTranslationMiddleware:
         return json.dumps(row, ensure_ascii=False)
 
     # =========================================================================
-    # 1. TMX <-> JSONL ROUTINES
+    # ADVANCED EXTENSIONS: STREAMING SORTING & CUSTOM CSV FLAVORING SHIMS
     # =========================================================================
-    def tmx_to_jsonl(self, tmx_bytes: bytes) -> Generator[str, None, None]:
-        """Streams a TMX XML byte payload and yields formatted JSONL strings on-the-fly."""
+    def stream_and_sort_buffer(
+        self, 
+        raw_pair_generator: Generator[Dict[str, Any], None, None], 
+        sort_key_lambda: Callable[[Dict[str, Any]], Any],
+        buffer_size: int = 5000,
+        reverse: bool = False
+    ) -> Generator[Dict[str, Any], None, None]:
+        """
+        Pools streaming rows into a transient chunked window to allow dynamic lambda sorting
+        (e.g., sorting by word length, root matching, or animacy morph density) without memory bloat.
+        """
+        buffer = []
+        for pair in raw_pair_generator:
+            buffer.append(pair)
+            if len(buffer) >= buffer_size:
+                buffer.sort(key=sort_key_lambda, reverse=reverse)
+                yield from buffer
+                buffer.clear()
+        if buffer:
+            buffer.sort(key=sort_key_lambda, reverse=reverse)
+            yield from buffer
+
+    def to_flat_csv_line(
+        self, 
+        pair: Dict[str, Any], 
+        field_mapping: Dict[str, str], 
+        csv_writer: csv.writer, 
+        string_buffer: io.StringIO
+    ) -> str:
+        """
+        Flattens internal translation/morphology structures into a single line string fragment 
+        matching target web-dictionary column architectures. Clears buffer immediately after execution.
+        """
+        row = []
+        for internal_key in field_mapping.keys():
+            val = pair.get(internal_key, "")
+            # Flatten array fields (like morphological parts/particles) into a clean string
+            if isinstance(val, list):
+                val = "; ".join(map(str, val))
+            row.append(str(val))
+            
+        csv_writer.writerow(row)
+        line = string_buffer.getvalue()
+        
+        # Reset the in-memory string stream to prevent internal string stacking
+        string_buffer.seek(0)
+        string_buffer.truncate(0)
+        return line.rstrip("\r\n")
+
+    # =========================================================================
+    # 1. TMX <-> JSONL ROUTINES (Upgraded to yield structured dict arrays first)
+    # =========================================================================
+    def parse_tmx_to_dict_stream(self, tmx_bytes: bytes) -> Generator[Dict[str, Any], None, None]:
+        """Streams a TMX XML payload and yields parsed dictionary objects for intermediate operations."""
         context = ET.iterparse(io.BytesIO(tmx_bytes), events=("end",))
         for _, elem in context:
             if elem.tag == "tu":
@@ -52,8 +106,18 @@ class LLMTranslationMiddleware:
                         tuv_dict[lang] = seg.text
                 
                 if self.src_lang in tuv_dict and self.tgt_lang in tuv_dict:
-                    yield self._build_jsonl_message(tuv_dict[self.src_lang], tuv_dict[self.tgt_lang])
+                    yield {
+                        self.src_lang: tuv_dict[self.src_lang],
+                        self.tgt_lang: tuv_dict[self.tgt_lang],
+                        "src_len": len(tuv_dict[self.src_lang]),
+                        "tgt_len": len(tuv_dict[self.tgt_lang])
+                    }
                 elem.clear()
+
+    def tmx_to_jsonl(self, tmx_bytes: bytes) -> Generator[str, None, None]:
+        """Streams a TMX XML byte payload and yields formatted JSONL strings on-the-fly."""
+        for pair in self.parse_tmx_to_dict_stream(tmx_bytes):
+            yield self._build_jsonl_message(pair[self.src_lang], pair[self.tgt_lang])
 
     def jsonl_to_tmx(self, jsonl_lines: Iterable[str]) -> bytes:
         """Converts an iterable collection of LLM JSONL strings back into a strict TMX payload."""
@@ -84,7 +148,7 @@ class LLMTranslationMiddleware:
         """Streams a legacy or standard XLIFF byte array, yielding structured JSONL lines."""
         context = ET.iterparse(io.BytesIO(xliff_bytes), events=("end",))
         for _, elem in context:
-            tag_name = elem.tag.split("}")[-1]  # Simple approach to handle variable namespaces
+            tag_name = elem.tag.split("}")[-1]
             if tag_name == "trans-unit":
                 src = elem.find(".//{*}source")
                 tgt = elem.find(".//{*}target")
@@ -137,15 +201,6 @@ class LLMTranslationMiddleware:
                 clean_key = path
                 meta = []
                 
-                # Strip out programmatic grammar suffixes and place them into instruction context
                 for suffix in self.i18n_affixes:
                     if clean_key.endswith(suffix):
                         clean_key = clean_key[:-len(suffix)]
-                        meta.append(f"Grammar: {suffix.lstrip('_')}")
-                        break
-                        
-                context_str = f"Key: {clean_key}"
-                if meta: 
-                    context_str += f", Context: {', '.join(meta)}"
-                
-                yield self._build_jsonl_message(src_text, tgt_text, extra_notes=context_str)
